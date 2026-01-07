@@ -4,7 +4,7 @@ App(
     apptype=FlipperAppType.EXTERNAL,
     targets=["f7"],
     entry_point="nfc_rfid_detector_app",
-    requires=["gui"],
+    requires=["gui", "usb_hid"],
     stack_size=4 * 1024,
     fap_description="Identify the reader type: NFC (13 MHz) and/or RFID (125 KHz).",
     fap_version="1.4",
