@@ -9,7 +9,15 @@
 
 typedef enum {
     NfcRfidDetectorViewVariableItemList,
-    NfcRfidDetectorViewSubmenu,
-    NfcRfidDetectorViewFieldPresence,
     NfcRfidDetectorViewWidget,
 } NfcRfidDetectorView;
+
+typedef enum {
+    NfcRfidDetectorReadModeNfc,
+    NfcRfidDetectorReadModeRfid,
+} NfcRfidDetectorReadMode;
+
+typedef enum {
+    NfcRfidDetectorUidFormatCompact,
+    NfcRfidDetectorUidFormatSpaced,
+} NfcRfidDetectorUidFormat;

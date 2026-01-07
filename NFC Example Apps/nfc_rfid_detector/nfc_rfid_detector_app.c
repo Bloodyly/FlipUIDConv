@@ -45,23 +45,26 @@ NfcRfidDetectorApp* nfc_rfid_detector_app_alloc() {
     app->notifications = furi_record_open(RECORD_NOTIFICATION);
 
     // SubMenu
-    app->submenu = submenu_alloc();
+    app->variable_item_list = variable_item_list_alloc();
     view_dispatcher_add_view(
-        app->view_dispatcher, NfcRfidDetectorViewSubmenu, submenu_get_view(app->submenu));
+        app->view_dispatcher,
+        NfcRfidDetectorViewVariableItemList,
+        variable_item_list_get_view(app->variable_item_list));
 
     // Widget
     app->widget = widget_alloc();
     view_dispatcher_add_view(
         app->view_dispatcher, NfcRfidDetectorViewWidget, widget_get_view(app->widget));
 
-    // Field Presence
-    app->nfc_rfid_detector_field_presence = nfc_rfid_detector_view_field_presence_alloc();
-    view_dispatcher_add_view(
-        app->view_dispatcher,
-        NfcRfidDetectorViewFieldPresence,
-        nfc_rfid_detector_view_field_presence_get_view(app->nfc_rfid_detector_field_presence));
+    app->uid_string = furi_string_alloc();
+    app->read_mode = NfcRfidDetectorReadModeNfc;
+    app->uid_format = NfcRfidDetectorUidFormatSpaced;
+    app->scanning = false;
+    app->uid_ready = false;
+    app->scan_thread = NULL;
+    app->rfid_protocol_id = PROTOCOL_NO;
 
-    scene_manager_next_scene(app->scene_manager, NfcRfidDetectorSceneFieldPresence);
+    scene_manager_next_scene(app->scene_manager, NfcRfidDetectorSceneSettings);
 
     return app;
 }
@@ -69,17 +72,16 @@ NfcRfidDetectorApp* nfc_rfid_detector_app_alloc() {
 void nfc_rfid_detector_app_free(NfcRfidDetectorApp* app) {
     furi_assert(app);
 
-    // Submenu
-    view_dispatcher_remove_view(app->view_dispatcher, NfcRfidDetectorViewSubmenu);
-    submenu_free(app->submenu);
+    // Variable item list
+    view_dispatcher_remove_view(app->view_dispatcher, NfcRfidDetectorViewVariableItemList);
+    variable_item_list_free(app->variable_item_list);
 
     //  Widget
     view_dispatcher_remove_view(app->view_dispatcher, NfcRfidDetectorViewWidget);
     widget_free(app->widget);
 
-    // Field Presence
-    view_dispatcher_remove_view(app->view_dispatcher, NfcRfidDetectorViewFieldPresence);
-    nfc_rfid_detector_view_field_presence_free(app->nfc_rfid_detector_field_presence);
+    nfc_rfid_detector_app_scan_stop(app);
+    furi_string_free(app->uid_string);
 
     // View dispatcher
     view_dispatcher_free(app->view_dispatcher);
