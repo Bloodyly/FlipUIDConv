@@ -1,6 +1,7 @@
 #include "FlipUIDConv_app_i.h"
 
 #include <furi.h>
+#include <stdio.h>
 
 #define TAG "FlipUIDConv"
 
@@ -108,7 +109,7 @@ static void FlipUIDConv_format_uid(
             value = FlipUIDConv_uid_to_uint64_le(uid, 5);
             char hex_value[11] = {0};
             char trimmed_hex[10] = {0};
-            furi_snprintf(hex_value, sizeof(hex_value), "%010llX", (unsigned long long)value);
+            snprintf(hex_value, sizeof(hex_value), "%010llX", (unsigned long long)value);
             size_t out_index = 0;
             for(size_t i = 0; i < 10; i++) {
                 if(i == 5) {
