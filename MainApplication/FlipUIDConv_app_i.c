@@ -212,9 +212,9 @@ static void FlipUIDConv_send_hid_if_connected(const char* text) {
         furi_delay_ms(5);
     }
 
-    furi_hal_hid_kb_press(HID_KEYBOARD_ENTER);
+    furi_hal_hid_kb_press(HID_KEYBOARD_RETURN);
     furi_delay_ms(5);
-    furi_hal_hid_kb_release(HID_KEYBOARD_ENTER);
+    furi_hal_hid_kb_release(HID_KEYBOARD_RETURN);
 }
 
 static NfcCommand iso14443_3a_async_callback(NfcGenericEvent event, void* context) {
