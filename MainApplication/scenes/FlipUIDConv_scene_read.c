@@ -141,6 +141,10 @@ bool FlipUIDConv_scene_read_on_event(void* context, SceneManagerEvent event) {
         if(app->scanning && !app->led_tag_found) {
             notification_message(app->notifications, &sequence_blink_blue_100);
         }
+    } else if(event.type == SceneManagerEventTypeTick) {
+        if(app->scanning && !app->led_tag_found) {
+            notification_message(app->notifications, &sequence_blink_blue_10);
+        }
     } else if(event.type == SceneManagerEventTypeBack) {
         scene_manager_previous_scene(app->scene_manager);
         return true;
