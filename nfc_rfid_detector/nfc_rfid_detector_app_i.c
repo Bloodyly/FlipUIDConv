@@ -48,6 +48,9 @@ static void nfc_rfid_detector_hid_type_text(const char* text) {
         }
         furi_delay_ms(HID_CONNECT_RETRY_MS);
     }
+    if(!furi_hal_hid_is_connected()) {
+        return;
+    }
 
     for(size_t i = 0; text[i] != '\0'; i++) {
         uint16_t keycode = nfc_rfid_detector_hid_keycode_for_char(text[i]);
@@ -59,6 +62,10 @@ static void nfc_rfid_detector_hid_type_text(const char* text) {
         furi_hal_hid_kb_release(keycode);
         furi_delay_ms(HID_TYPE_DELAY_MS);
     }
+
+    furi_hal_hid_kb_press(HID_KEYBOARD_RETURN);
+    furi_delay_ms(HID_TYPE_DELAY_MS);
+    furi_hal_hid_kb_release(HID_KEYBOARD_RETURN);
 }
 
 typedef struct {
