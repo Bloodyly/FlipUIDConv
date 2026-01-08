@@ -1,0 +1,1 @@
+{"meta": {"hw_target": "f7", "flavor": "C", "version": "1.4.3"}, "components": {"full.bin": "full.bin", "firmware.elf": "firmware.elf", "update.dir": "f7-update-1.4.3", "sdk_headers.dir": "sdk_headers", "lib.dir": "lib", "scripts.dir": "scripts"}}

@@ -20,7 +20,7 @@ extern const SceneManagerHandlers FlipUIDConv_scene_handlers;
 // Generate scene on_event handlers declaration
 #define ADD_SCENE(prefix, name, id) \
     bool prefix##_scene_##name##_on_event(void* context, SceneManagerEvent event);
-#include "FlipUIDConvFlipUIDConv_scene_config.h"
+#include "FlipUIDConv_scene_config.h"
 #undef ADD_SCENE
 
 // Generate scene on_exit handlers declaration

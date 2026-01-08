@@ -1,5 +1,5 @@
 App(
-    appid="FlipUIDConv",
+    appid="flipuidconv",
     name="NFC/FlipUIDConv",
     apptype=FlipperAppType.EXTERNAL,
     targets=["f7"],
