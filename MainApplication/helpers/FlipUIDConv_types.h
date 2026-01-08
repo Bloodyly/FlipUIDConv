@@ -32,8 +32,3 @@ typedef enum {
     FlipUIDConvUidFormatMsb,
     FlipUIDConvUidFormatLsb,
 } FlipUIDConvUidFormat;
-
-typedef enum {
-    FlipUIDConvOutputScreen,
-    FlipUIDConvOutputUsbHid,
-} FlipUIDConvOutput;
