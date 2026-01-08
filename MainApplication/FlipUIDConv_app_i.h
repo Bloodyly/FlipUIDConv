@@ -18,6 +18,8 @@
 #include <lfrfid/lfrfid_worker.h>
 #include <lfrfid/protocols/lfrfid_protocols.h>
 #include <toolbox/protocols/protocol_dict.h>
+#include <usb_hid.h>
+#include <furi_hal_usb_hid.h>
 
 #define ISO14443_3A_ASYNC_FLAG_COMPLETE (1UL << 0)
 
@@ -35,6 +37,7 @@ struct FlipUIDConvApp {
     bool uid_ready;
     FlipUIDConvReadMode read_mode;
     FlipUIDConvUidFormat uid_format;
+    FlipUIDConvOutput output_mode;
     FuriString* uid_string;
     ProtocolId rfid_protocol_id;
 };

@@ -20,4 +20,20 @@ typedef enum {
 typedef enum {
     FlipUIDConvUidFormatCompact,
     FlipUIDConvUidFormatSpaced,
+    FlipUIDConvUidFormatHex10,
+    FlipUIDConvUidFormatHex8,
+    FlipUIDConvUidFormatIk3Is,
+    FlipUIDConvUidFormatIk2,
+    FlipUIDConvUidFormatZkCodier,
+    FlipUIDConvUidFormatZxUa,
+    FlipUIDConvUidFormatHitag,
+    FlipUIDConvUidFormatWiegand32,
+    FlipUIDConvUidFormatWiegand26,
+    FlipUIDConvUidFormatMsb,
+    FlipUIDConvUidFormatLsb,
 } FlipUIDConvUidFormat;
+
+typedef enum {
+    FlipUIDConvOutputScreen,
+    FlipUIDConvOutputUsbHid,
+} FlipUIDConvOutput;

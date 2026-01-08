@@ -43,6 +43,9 @@ bool FlipUIDConv_scene_read_on_event(void* context, SceneManagerEvent event) {
             FlipUIDConv_scene_read_show_uid(app);
             return true;
         }
+    } else if(event.type == SceneManagerEventTypeBack) {
+        scene_manager_previous_scene(app->scene_manager);
+        return true;
     }
 
     return false;

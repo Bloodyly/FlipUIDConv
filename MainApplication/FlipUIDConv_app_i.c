@@ -13,23 +13,163 @@ typedef struct {
     Iso14443_3aData iso14443_3a_data;
 } AsyncPollerContext;
 
-static void FlipUIDConv_format_uid_hex(
+static uint64_t FlipUIDConv_uid_to_uint64_be(const uint8_t* uid, size_t uid_len) {
+    uint64_t value = 0;
+    size_t start = uid_len > 8 ? uid_len - 8 : 0;
+    for(size_t i = start; i < uid_len; i++) {
+        value = (value << 8) | uid[i];
+    }
+    return value;
+}
+
+static uint64_t FlipUIDConv_uid_to_uint64_le(const uint8_t* uid, size_t uid_len) {
+    uint64_t value = 0;
+    size_t count = uid_len > 8 ? 8 : uid_len;
+    for(size_t i = 0; i < count; i++) {
+        value |= ((uint64_t)uid[i]) << (8 * i);
+    }
+    return value;
+}
+
+static bool FlipUIDConv_uid_to_uint64_be_bytes(
+    const uint8_t* uid,
+    size_t uid_len,
+    size_t bytes,
+    uint64_t* value_out) {
+    if(uid_len < bytes || bytes == 0 || bytes > 8) {
+        return false;
+    }
+    uint64_t value = 0;
+    size_t start = uid_len - bytes;
+    for(size_t i = start; i < uid_len; i++) {
+        value = (value << 8) | uid[i];
+    }
+    *value_out = value;
+    return true;
+}
+
+static void FlipUIDConv_format_uid(
     FuriString* output,
     const uint8_t* uid,
     size_t uid_len,
     FlipUIDConvUidFormat format) {
     furi_string_reset(output);
-    for(size_t i = 0; i < uid_len; i++) {
-        if(format == FlipUIDConvUidFormatSpaced && i > 0) {
-            furi_string_cat(output, " ");
+    if(uid_len == 0) {
+        furi_string_set(output, "N/A");
+        return;
+    }
+
+    uint64_t value = 0;
+    switch(format) {
+    case FlipUIDConvUidFormatCompact:
+    case FlipUIDConvUidFormatSpaced:
+        for(size_t i = 0; i < uid_len; i++) {
+            if(format == FlipUIDConvUidFormatSpaced && i > 0) {
+                furi_string_cat(output, " ");
+            }
+            furi_string_cat_printf(output, "%02X", uid[i]);
         }
-        furi_string_cat_printf(output, "%02X", uid[i]);
+        return;
+    case FlipUIDConvUidFormatHex10:
+        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 5, &value)) {
+            furi_string_cat_printf(output, "%010llX", (unsigned long long)value);
+        } else {
+            furi_string_set(output, "N/A");
+        }
+        return;
+    case FlipUIDConvUidFormatHex8:
+        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 4, &value)) {
+            furi_string_cat_printf(output, "%08llX", (unsigned long long)value);
+        } else {
+            furi_string_set(output, "N/A");
+        }
+        return;
+    case FlipUIDConvUidFormatIk3Is:
+        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 3, &value)) {
+            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        } else {
+            furi_string_set(output, "N/A");
+        }
+        return;
+    case FlipUIDConvUidFormatIk2:
+        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 2, &value)) {
+            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        } else {
+            furi_string_set(output, "N/A");
+        }
+        return;
+    case FlipUIDConvUidFormatZkCodier:
+    case FlipUIDConvUidFormatZxUa:
+    case FlipUIDConvUidFormatHitag:
+    case FlipUIDConvUidFormatWiegand32:
+        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 4, &value)) {
+            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        } else {
+            furi_string_set(output, "N/A");
+        }
+        return;
+    case FlipUIDConvUidFormatWiegand26:
+        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 3, &value)) {
+            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        } else {
+            furi_string_set(output, "N/A");
+        }
+        return;
+    case FlipUIDConvUidFormatMsb:
+        value = FlipUIDConv_uid_to_uint64_be(uid, uid_len);
+        furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        return;
+    case FlipUIDConvUidFormatLsb:
+        value = FlipUIDConv_uid_to_uint64_le(uid, uid_len);
+        furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        return;
     }
 }
 
-static void FlipUIDConv_set_uid_text(FlipUIDConvApp* app, const char* text) {
-    furi_string_set(app->uid_string, text);
-    app->uid_ready = true;
+static void FlipUIDConv_set_uid_text(FuriString* output, const char* text) {
+    furi_string_set(output, text);
+}
+
+static uint16_t FlipUIDConv_hid_keycode_from_char(char c) {
+    if(c >= 'a' && c <= 'z') {
+        return HID_KEYBOARD_A + (c - 'a');
+    }
+    if(c >= 'A' && c <= 'Z') {
+        return (KEY_MOD_LEFT_SHIFT << 8) | (HID_KEYBOARD_A + (c - 'A'));
+    }
+    if(c >= '1' && c <= '9') {
+        return HID_KEYBOARD_1 + (c - '1');
+    }
+    if(c == '0') {
+        return HID_KEYBOARD_0;
+    }
+    if(c == ' ') {
+        return HID_KEYBOARD_SPACEBAR;
+    }
+    if(c == '-') {
+        return HID_KEYBOARD_MINUS;
+    }
+    if(c == '/') {
+        return HID_KEYBOARD_SLASH;
+    }
+    return HID_KEYBOARD_NONE;
+}
+
+static void FlipUIDConv_send_hid_if_connected(const char* text) {
+    if(!text || !furi_hal_hid_is_connected()) {
+        return;
+    }
+
+    for(size_t i = 0; text[i] != '\0'; i++) {
+        uint16_t keycode = FlipUIDConv_hid_keycode_from_char(text[i]);
+        if(keycode == HID_KEYBOARD_NONE) {
+            continue;
+        }
+        furi_hal_hid_kb_press(keycode);
+        furi_delay_ms(5);
+        furi_hal_hid_kb_release(keycode);
+        furi_delay_ms(5);
+    }
 }
 
 static NfcCommand iso14443_3a_async_callback(NfcGenericEvent event, void* context) {
@@ -65,7 +205,7 @@ static NfcCommand iso14443_3a_async_callback(NfcGenericEvent event, void* contex
     return NfcCommandContinue;
 }
 
-static bool FlipUIDConv_scan_nfc(FlipUIDConvApp* app) {
+static bool FlipUIDConv_scan_nfc(FlipUIDConvApp* app, FuriString* output) {
     Nfc* nfc = nfc_alloc();
     if(!nfc) {
         return false;
@@ -103,9 +243,7 @@ static bool FlipUIDConv_scan_nfc(FlipUIDConvApp* app) {
             size_t uid_len = 0;
             const uint8_t* uid = iso14443_3a_get_uid(&async_ctx.iso14443_3a_data, &uid_len);
             if(uid && uid_len > 0) {
-                FlipUIDConv_format_uid_hex(
-                    app->uid_string, uid, uid_len, app->uid_format);
-                app->uid_ready = true;
+                FlipUIDConv_format_uid(output, uid, uid_len, app->uid_format);
                 found = true;
             }
         }
@@ -130,7 +268,7 @@ static void FlipUIDConv_rfid_read_callback(
     }
 }
 
-static bool FlipUIDConv_scan_rfid(FlipUIDConvApp* app) {
+static bool FlipUIDConv_scan_rfid(FlipUIDConvApp* app, FuriString* output) {
     ProtocolDict* dict = protocol_dict_alloc(lfrfid_protocols, LFRFIDProtocolMax);
     if(!dict) {
         return false;
@@ -159,11 +297,10 @@ static bool FlipUIDConv_scan_rfid(FlipUIDConvApp* app) {
         if(data_size > 0) {
             uint8_t* data = malloc(data_size);
             protocol_dict_get_data(dict, app->rfid_protocol_id, data, data_size);
-            FlipUIDConv_format_uid_hex(
-                app->uid_string, data, data_size, app->uid_format);
+            FlipUIDConv_format_uid(output, data, data_size, app->uid_format);
             free(data);
         } else {
-            FlipUIDConv_set_uid_text(app, "N/A");
+            FlipUIDConv_set_uid_text(output, "N/A");
         }
     }
 
@@ -177,20 +314,36 @@ static int32_t FlipUIDConv_scan_thread(void* context) {
 
     app->uid_ready = false;
     furi_string_reset(app->uid_string);
+    FuriString* scanned_uid = furi_string_alloc();
 
-    bool detected = false;
-    if(app->read_mode == FlipUIDConvReadModeNfc) {
-        detected = FlipUIDConv_scan_nfc(app);
-    } else {
-        detected = FlipUIDConv_scan_rfid(app);
-    }
+    while(app->scanning) {
+        bool detected = false;
+        furi_string_reset(scanned_uid);
+        if(app->read_mode == FlipUIDConvReadModeNfc) {
+            detected = FlipUIDConv_scan_nfc(app, scanned_uid);
+        } else {
+            detected = FlipUIDConv_scan_rfid(app, scanned_uid);
+        }
 
-    if(detected) {
-        view_dispatcher_send_custom_event(
-            app->view_dispatcher, FlipUIDConvCustomEventUidDetected);
+        if(detected && app->scanning) {
+            if(furi_string_cmp(scanned_uid, app->uid_string) != 0) {
+                furi_string_set(app->uid_string, furi_string_get_cstr(scanned_uid));
+                app->uid_ready = true;
+                if(app->output_mode == FlipUIDConvOutputUsbHid) {
+                    FlipUIDConv_send_hid_if_connected(
+                        furi_string_get_cstr(app->uid_string));
+                }
+                view_dispatcher_send_custom_event(
+                    app->view_dispatcher, FlipUIDConvCustomEventUidDetected);
+            }
+            furi_delay_ms(2000);
+        } else {
+            furi_delay_ms(50);
+        }
     }
 
     app->scanning = false;
+    furi_string_free(scanned_uid);
     return 0;
 }
 
