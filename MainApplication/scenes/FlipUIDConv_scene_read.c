@@ -19,7 +19,10 @@ static void FlipUIDConv_scene_read_show_uid(FlipUIDConvApp* app) {
 
     FuriString* text = furi_string_alloc();
     furi_string_printf(
-        text, "UID (HEX):\n%s", FlipUIDConv_app_get_uid_string(app));
+        text,
+        "UID (HEX):\n%s\nType: %s",
+        FlipUIDConv_app_get_uid_string(app),
+        furi_string_get_cstr(app->tag_type_string));
     widget_add_text_box_element(
         app->widget, 0, 0, 128, 52, AlignLeft, AlignTop, furi_string_get_cstr(text), true);
     furi_string_free(text);
@@ -31,6 +34,7 @@ void FlipUIDConv_scene_read_on_enter(void* context) {
     FlipUIDConv_scene_read_show_prompt(app);
     view_dispatcher_switch_to_view(app->view_dispatcher, FlipUIDConvViewWidget);
 
+    app->led_tag_found = false;
     FlipUIDConv_app_scan_start(app);
 }
 
@@ -39,9 +43,14 @@ bool FlipUIDConv_scene_read_on_event(void* context, SceneManagerEvent event) {
 
     if(event.type == SceneManagerEventTypeCustom) {
         if(event.event == FlipUIDConvCustomEventUidDetected) {
-            notification_message(app->notifications, &sequence_success);
+            app->led_tag_found = true;
+            notification_message(app->notifications, &sequence_set_green_255);
             FlipUIDConv_scene_read_show_uid(app);
             return true;
+        }
+    } else if(event.type == SceneManagerEventTypeTick) {
+        if(app->scanning && !app->led_tag_found) {
+            notification_message(app->notifications, &sequence_blink_blue_100);
         }
     } else if(event.type == SceneManagerEventTypeBack) {
         scene_manager_previous_scene(app->scene_manager);
@@ -54,5 +63,7 @@ bool FlipUIDConv_scene_read_on_event(void* context, SceneManagerEvent event) {
 void FlipUIDConv_scene_read_on_exit(void* context) {
     FlipUIDConvApp* app = context;
     FlipUIDConv_app_scan_stop(app);
+    app->led_tag_found = false;
+    notification_message(app->notifications, &sequence_reset_rgb);
     widget_reset(app->widget);
 }

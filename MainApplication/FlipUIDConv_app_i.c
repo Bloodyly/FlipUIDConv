@@ -130,6 +130,33 @@ static void FlipUIDConv_set_uid_text(FuriString* output, const char* text) {
     furi_string_set(output, text);
 }
 
+static void FlipUIDConv_set_tag_type_text(FuriString* output, const char* text) {
+    furi_string_set(output, text);
+}
+
+static void FlipUIDConv_format_nfc_tag_type(const Iso14443_3aData* data, FuriString* output) {
+    uint16_t atqa = ((uint16_t)data->atqa[1] << 8) | data->atqa[0];
+    uint8_t sak = data->sak;
+
+    if((sak == 0x08) && (atqa == 0x0004)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE Classic 1K");
+    } else if((sak == 0x18) && (atqa == 0x0002)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE Classic 4K");
+    } else if((sak == 0x09) && (atqa == 0x0004)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE Mini");
+    } else if((sak == 0x20)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE DESFire");
+    } else if((sak == 0x10)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE Plus");
+    } else if((sak == 0x00) && (atqa == 0x0044)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE Ultralight/NTAG");
+    } else if(iso14443_3a_supports_iso14443_4(data)) {
+        FlipUIDConv_set_tag_type_text(output, "ISO14443-4 (Type 4A)");
+    } else {
+        FlipUIDConv_set_tag_type_text(output, "NFC-A");
+    }
+}
+
 static uint16_t FlipUIDConv_hid_keycode_from_char(char c) {
     if(c >= 'a' && c <= 'z') {
         return HID_KEYBOARD_A + (c - 'a');
@@ -170,6 +197,10 @@ static void FlipUIDConv_send_hid_if_connected(const char* text) {
         furi_hal_hid_kb_release(keycode);
         furi_delay_ms(5);
     }
+
+    furi_hal_hid_kb_press(HID_KEYBOARD_ENTER);
+    furi_delay_ms(5);
+    furi_hal_hid_kb_release(HID_KEYBOARD_ENTER);
 }
 
 static NfcCommand iso14443_3a_async_callback(NfcGenericEvent event, void* context) {
@@ -205,7 +236,7 @@ static NfcCommand iso14443_3a_async_callback(NfcGenericEvent event, void* contex
     return NfcCommandContinue;
 }
 
-static bool FlipUIDConv_scan_nfc(FlipUIDConvApp* app, FuriString* output) {
+static bool FlipUIDConv_scan_nfc(FlipUIDConvApp* app, FuriString* output, FuriString* tag_type) {
     Nfc* nfc = nfc_alloc();
     if(!nfc) {
         return false;
@@ -244,6 +275,7 @@ static bool FlipUIDConv_scan_nfc(FlipUIDConvApp* app, FuriString* output) {
             const uint8_t* uid = iso14443_3a_get_uid(&async_ctx.iso14443_3a_data, &uid_len);
             if(uid && uid_len > 0) {
                 FlipUIDConv_format_uid(output, uid, uid_len, app->uid_format);
+                FlipUIDConv_format_nfc_tag_type(&async_ctx.iso14443_3a_data, tag_type);
                 found = true;
             }
         }
@@ -268,7 +300,7 @@ static void FlipUIDConv_rfid_read_callback(
     }
 }
 
-static bool FlipUIDConv_scan_rfid(FlipUIDConvApp* app, FuriString* output) {
+static bool FlipUIDConv_scan_rfid(FlipUIDConvApp* app, FuriString* output, FuriString* tag_type) {
     ProtocolDict* dict = protocol_dict_alloc(lfrfid_protocols, LFRFIDProtocolMax);
     if(!dict) {
         return false;
@@ -302,6 +334,10 @@ static bool FlipUIDConv_scan_rfid(FlipUIDConvApp* app, FuriString* output) {
         } else {
             FlipUIDConv_set_uid_text(output, "N/A");
         }
+        FlipUIDConv_set_tag_type_text(
+            tag_type, protocol_dict_get_name(dict, app->rfid_protocol_id));
+    } else {
+        FlipUIDConv_set_tag_type_text(tag_type, "Unknown");
     }
 
     lfrfid_worker_free(worker);
@@ -314,28 +350,31 @@ static int32_t FlipUIDConv_scan_thread(void* context) {
 
     app->uid_ready = false;
     furi_string_reset(app->uid_string);
+    furi_string_reset(app->tag_type_string);
     FuriString* scanned_uid = furi_string_alloc();
+    FuriString* scanned_tag_type = furi_string_alloc();
 
     while(app->scanning) {
         bool detected = false;
         furi_string_reset(scanned_uid);
+        furi_string_reset(scanned_tag_type);
+        app->led_tag_found = false;
         if(app->read_mode == FlipUIDConvReadModeNfc) {
-            detected = FlipUIDConv_scan_nfc(app, scanned_uid);
+            detected = FlipUIDConv_scan_nfc(app, scanned_uid, scanned_tag_type);
         } else {
-            detected = FlipUIDConv_scan_rfid(app, scanned_uid);
+            detected = FlipUIDConv_scan_rfid(app, scanned_uid, scanned_tag_type);
         }
 
         if(detected && app->scanning) {
+            app->led_tag_found = true;
             if(furi_string_cmp(scanned_uid, app->uid_string) != 0) {
                 furi_string_set(app->uid_string, furi_string_get_cstr(scanned_uid));
                 app->uid_ready = true;
-                if(app->output_mode == FlipUIDConvOutputUsbHid) {
-                    FlipUIDConv_send_hid_if_connected(
-                        furi_string_get_cstr(app->uid_string));
-                }
-                view_dispatcher_send_custom_event(
-                    app->view_dispatcher, FlipUIDConvCustomEventUidDetected);
+                FlipUIDConv_send_hid_if_connected(furi_string_get_cstr(app->uid_string));
             }
+            furi_string_set(app->tag_type_string, furi_string_get_cstr(scanned_tag_type));
+            view_dispatcher_send_custom_event(
+                app->view_dispatcher, FlipUIDConvCustomEventUidDetected);
             furi_delay_ms(2000);
         } else {
             furi_delay_ms(50);
@@ -344,6 +383,7 @@ static int32_t FlipUIDConv_scan_thread(void* context) {
 
     app->scanning = false;
     furi_string_free(scanned_uid);
+    furi_string_free(scanned_tag_type);
     return 0;
 }
 
