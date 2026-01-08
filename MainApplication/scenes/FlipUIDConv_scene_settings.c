@@ -15,16 +15,11 @@ static const char* FlipUIDConv_uid_format_labels[] = {
     "Compact",
     "Spaced",
     "Hex10",
-    "Hex8",
+    "Hex8/COMLock",
     "IK3/IS",
     "IK2",
     "ZK/Codier",
-    "ZX/UA",
-    "Hitag",
-    "Wiegand32",
-    "Wiegand26",
-    "MSB",
-    "LSB",
+    "IS",
 };
 
 static const char* FlipUIDConv_usb_status_labels[] = {

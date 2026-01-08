@@ -14,6 +14,13 @@ typedef struct {
 } AsyncPollerContext;
 
 /* Conversion methods: UID formatting */
+static uint8_t FlipUIDConv_reverse_bits_u8(uint8_t value) {
+    value = (value >> 4) | (value << 4);
+    value = ((value & 0xCC) >> 2) | ((value & 0x33) << 2);
+    value = ((value & 0xAA) >> 1) | ((value & 0x55) << 1);
+    return value;
+}
+
 static uint64_t FlipUIDConv_uid_to_uint64_be(const uint8_t* uid, size_t uid_len) {
     uint64_t value = 0;
     size_t start = uid_len > 8 ? uid_len - 8 : 0;
@@ -32,23 +39,6 @@ static uint64_t FlipUIDConv_uid_to_uint64_le(const uint8_t* uid, size_t uid_len)
     return value;
 }
 
-static bool FlipUIDConv_uid_to_uint64_be_bytes(
-    const uint8_t* uid,
-    size_t uid_len,
-    size_t bytes,
-    uint64_t* value_out) {
-    if(uid_len < bytes || bytes == 0 || bytes > 8) {
-        return false;
-    }
-    uint64_t value = 0;
-    size_t start = uid_len - bytes;
-    for(size_t i = start; i < uid_len; i++) {
-        value = (value << 8) | uid[i];
-    }
-    *value_out = value;
-    return true;
-}
-
 static void FlipUIDConv_format_uid(
     FuriString* output,
     const uint8_t* uid,
@@ -61,6 +51,7 @@ static void FlipUIDConv_format_uid(
     }
 
     uint64_t value = 0;
+    uint8_t reversed_uid[8] = {0};
     switch(format) {
     case FlipUIDConvUidFormatCompact:
     case FlipUIDConvUidFormatSpaced:
@@ -72,55 +63,74 @@ static void FlipUIDConv_format_uid(
         }
         return;
     case FlipUIDConvUidFormatHex10:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 5, &value)) {
+        if(uid_len >= 5) {
+            for(size_t i = 0; i < 5; i++) {
+                reversed_uid[i] = FlipUIDConv_reverse_bits_u8(uid[i]);
+            }
+            value = FlipUIDConv_uid_to_uint64_be(reversed_uid, 5);
             furi_string_cat_printf(output, "%010llX", (unsigned long long)value);
         } else {
             furi_string_set(output, "N/A");
         }
         return;
     case FlipUIDConvUidFormatHex8:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 4, &value)) {
+        if(uid_len >= 4) {
+            for(size_t i = 0; i < 4; i++) {
+                reversed_uid[i] = FlipUIDConv_reverse_bits_u8(uid[i]);
+            }
+            value = FlipUIDConv_uid_to_uint64_be(reversed_uid, 4);
             furi_string_cat_printf(output, "%08llX", (unsigned long long)value);
         } else {
             furi_string_set(output, "N/A");
         }
         return;
     case FlipUIDConvUidFormatIk3Is:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 3, &value)) {
-            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        if(uid_len >= 5) {
+            value = FlipUIDConv_uid_to_uint64_le(uid, 5);
+            furi_string_cat_printf(output, "%013llu", (unsigned long long)value);
         } else {
             furi_string_set(output, "N/A");
         }
         return;
     case FlipUIDConvUidFormatIk2:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 2, &value)) {
-            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        if(uid_len >= 5) {
+            for(size_t i = 0; i < 5; i++) {
+                reversed_uid[i] = FlipUIDConv_reverse_bits_u8(uid[i]);
+            }
+            value = FlipUIDConv_uid_to_uint64_be(reversed_uid, 5);
+            furi_string_cat_printf(output, "%013llu", (unsigned long long)value);
         } else {
             furi_string_set(output, "N/A");
         }
         return;
     case FlipUIDConvUidFormatZkCodier:
-    case FlipUIDConvUidFormatZxUa:
-    case FlipUIDConvUidFormatHitag:
-    case FlipUIDConvUidFormatWiegand32:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 4, &value)) {
-            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        if(uid_len >= 5) {
+            value = FlipUIDConv_uid_to_uint64_le(uid, 5);
+            char hex_value[11] = {0};
+            char trimmed_hex[10] = {0};
+            furi_snprintf(hex_value, sizeof(hex_value), "%010llX", (unsigned long long)value);
+            size_t out_index = 0;
+            for(size_t i = 0; i < 10; i++) {
+                if(i == 5) {
+                    continue;
+                }
+                trimmed_hex[out_index++] = hex_value[i];
+            }
+            trimmed_hex[out_index] = '\0';
+            for(size_t i = 0; i < out_index; i++) {
+                uint8_t digit = 0;
+                if(trimmed_hex[i] >= '0' && trimmed_hex[i] <= '9') {
+                    digit = trimmed_hex[i] - '0';
+                } else if(trimmed_hex[i] >= 'A' && trimmed_hex[i] <= 'F') {
+                    digit = trimmed_hex[i] - 'A' + 10;
+                }
+                furi_string_cat_printf(output, "%02u", digit);
+            }
         } else {
             furi_string_set(output, "N/A");
         }
         return;
-    case FlipUIDConvUidFormatWiegand26:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 3, &value)) {
-            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
-        } else {
-            furi_string_set(output, "N/A");
-        }
-        return;
-    case FlipUIDConvUidFormatMsb:
-        value = FlipUIDConv_uid_to_uint64_be(uid, uid_len);
-        furi_string_cat_printf(output, "%llu", (unsigned long long)value);
-        return;
-    case FlipUIDConvUidFormatLsb:
+    case FlipUIDConvUidFormatIs:
         value = FlipUIDConv_uid_to_uint64_le(uid, uid_len);
         furi_string_cat_printf(output, "%llu", (unsigned long long)value);
         return;
@@ -360,6 +370,7 @@ static int32_t FlipUIDConv_scan_thread(void* context) {
         bool detected = false;
         furi_string_reset(scanned_uid);
         furi_string_reset(scanned_tag_type);
+        app->uid_ready = false;
         app->led_tag_found = false;
         if(app->read_mode == FlipUIDConvReadModeNfc) {
             detected = FlipUIDConv_scan_nfc(app, scanned_uid, scanned_tag_type);

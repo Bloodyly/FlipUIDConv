@@ -5,8 +5,17 @@ static void FlipUIDConv_scene_read_show_prompt(FlipUIDConvApp* app) {
 
     FuriString* text = furi_string_alloc();
     const char* mode = (app->read_mode == FlipUIDConvReadModeNfc) ? "NFC" : "RFID";
-    const char* format =
-        (app->uid_format == FlipUIDConvUidFormatSpaced) ? "Spaced HEX" : "Compact HEX";
+    static const char* FlipUIDConv_uid_format_labels[] = {
+        "Compact",
+        "Spaced",
+        "Hex10",
+        "Hex8/COMLock",
+        "IK3/IS",
+        "IK2",
+        "ZK/Codier",
+        "IS",
+    };
+    const char* format = FlipUIDConv_uid_format_labels[app->uid_format];
 
     furi_string_printf(text, "Scan %s tag\nUID format: %s\n\nHold tag close.", mode, format);
     widget_add_text_box_element(
