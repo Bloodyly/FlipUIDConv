@@ -1,0 +1,23 @@
+#pragma once
+
+#include <furi.h>
+#include <furi_hal.h>
+
+#define FLIPUIDCONV_VERSION_APP "0.1"
+#define FLIPUIDCONV_DEVELOPED   "Abbyss"
+#define FLIPUIDCONV_GITHUB      "https://github.com/flipperdevices/flipperzero-good-faps"
+
+typedef enum {
+    FlipUIDConvViewVariableItemList,
+    FlipUIDConvViewWidget,
+} FlipUIDConvView;
+
+typedef enum {
+    FlipUIDConvReadModeNfc,
+    FlipUIDConvReadModeRfid,
+} FlipUIDConvReadMode;
+
+typedef enum {
+    FlipUIDConvUidFormatCompact,
+    FlipUIDConvUidFormatSpaced,
+} FlipUIDConvUidFormat;

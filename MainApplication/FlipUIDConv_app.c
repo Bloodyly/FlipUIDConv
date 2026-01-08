@@ -1,43 +1,43 @@
-#include "nfc_rfid_detector_app_i.h"
+#include "FlipUIDConv_app_i.h"
 
 #include <furi.h>
 #include <furi_hal.h>
 
-static bool nfc_rfid_detector_app_custom_event_callback(void* context, uint32_t event) {
+static bool FlipUIDConv_app_custom_event_callback(void* context, uint32_t event) {
     furi_assert(context);
-    NfcRfidDetectorApp* app = context;
+    FlipUIDConvApp* app = context;
     return scene_manager_handle_custom_event(app->scene_manager, event);
 }
 
-static bool nfc_rfid_detector_app_back_event_callback(void* context) {
+static bool FlipUIDConv_app_back_event_callback(void* context) {
     furi_assert(context);
-    NfcRfidDetectorApp* app = context;
+    FlipUIDConvApp* app = context;
     return scene_manager_handle_back_event(app->scene_manager);
 }
 
-static void nfc_rfid_detector_app_tick_event_callback(void* context) {
+static void FlipUIDConv_app_tick_event_callback(void* context) {
     furi_assert(context);
-    NfcRfidDetectorApp* app = context;
+    FlipUIDConvApp* app = context;
     scene_manager_handle_tick_event(app->scene_manager);
 }
 
-NfcRfidDetectorApp* nfc_rfid_detector_app_alloc() {
-    NfcRfidDetectorApp* app = malloc(sizeof(NfcRfidDetectorApp));
+FlipUIDConvApp* FlipUIDConv_app_alloc() {
+    FlipUIDConvApp* app = malloc(sizeof(FlipUIDConvApp));
 
     // GUI
     app->gui = furi_record_open(RECORD_GUI);
 
     // View Dispatcher
     app->view_dispatcher = view_dispatcher_alloc();
-    app->scene_manager = scene_manager_alloc(&nfc_rfid_detector_scene_handlers, app);
+    app->scene_manager = scene_manager_alloc(&FlipUIDConv_scene_handlers, app);
 
     view_dispatcher_set_event_callback_context(app->view_dispatcher, app);
     view_dispatcher_set_custom_event_callback(
-        app->view_dispatcher, nfc_rfid_detector_app_custom_event_callback);
+        app->view_dispatcher, FlipUIDConv_app_custom_event_callback);
     view_dispatcher_set_navigation_event_callback(
-        app->view_dispatcher, nfc_rfid_detector_app_back_event_callback);
+        app->view_dispatcher, FlipUIDConv_app_back_event_callback);
     view_dispatcher_set_tick_event_callback(
-        app->view_dispatcher, nfc_rfid_detector_app_tick_event_callback, 100);
+        app->view_dispatcher, FlipUIDConv_app_tick_event_callback, 100);
 
     view_dispatcher_attach_to_gui(app->view_dispatcher, app->gui, ViewDispatcherTypeFullscreen);
 
@@ -48,39 +48,39 @@ NfcRfidDetectorApp* nfc_rfid_detector_app_alloc() {
     app->variable_item_list = variable_item_list_alloc();
     view_dispatcher_add_view(
         app->view_dispatcher,
-        NfcRfidDetectorViewVariableItemList,
+        FlipUIDConvViewVariableItemList,
         variable_item_list_get_view(app->variable_item_list));
 
     // Widget
     app->widget = widget_alloc();
     view_dispatcher_add_view(
-        app->view_dispatcher, NfcRfidDetectorViewWidget, widget_get_view(app->widget));
+        app->view_dispatcher, FlipUIDConvViewWidget, widget_get_view(app->widget));
 
     app->uid_string = furi_string_alloc();
-    app->read_mode = NfcRfidDetectorReadModeNfc;
-    app->uid_format = NfcRfidDetectorUidFormatSpaced;
+    app->read_mode = FlipUIDConvReadModeNfc;
+    app->uid_format = FlipUIDConvUidFormatSpaced;
     app->scanning = false;
     app->uid_ready = false;
     app->scan_thread = NULL;
     app->rfid_protocol_id = PROTOCOL_NO;
 
-    scene_manager_next_scene(app->scene_manager, NfcRfidDetectorSceneSettings);
+    scene_manager_next_scene(app->scene_manager, FlipUIDConvSceneSettings);
 
     return app;
 }
 
-void nfc_rfid_detector_app_free(NfcRfidDetectorApp* app) {
+void FlipUIDConv_app_free(FlipUIDConvApp* app) {
     furi_assert(app);
 
     // Variable item list
-    view_dispatcher_remove_view(app->view_dispatcher, NfcRfidDetectorViewVariableItemList);
+    view_dispatcher_remove_view(app->view_dispatcher, FlipUIDConvViewVariableItemList);
     variable_item_list_free(app->variable_item_list);
 
     //  Widget
-    view_dispatcher_remove_view(app->view_dispatcher, NfcRfidDetectorViewWidget);
+    view_dispatcher_remove_view(app->view_dispatcher, FlipUIDConvViewWidget);
     widget_free(app->widget);
 
-    nfc_rfid_detector_app_scan_stop(app);
+    FlipUIDConv_app_scan_stop(app);
     furi_string_free(app->uid_string);
 
     // View dispatcher
@@ -97,13 +97,13 @@ void nfc_rfid_detector_app_free(NfcRfidDetectorApp* app) {
     free(app);
 }
 
-int32_t nfc_rfid_detector_app(void* p) {
+int32_t FlipUIDConv_app(void* p) {
     UNUSED(p);
-    NfcRfidDetectorApp* nfc_rfid_detector_app = nfc_rfid_detector_app_alloc();
+    FlipUIDConvApp* FlipUIDConv_app = FlipUIDConv_app_alloc();
 
-    view_dispatcher_run(nfc_rfid_detector_app->view_dispatcher);
+    view_dispatcher_run(FlipUIDConv_app->view_dispatcher);
 
-    nfc_rfid_detector_app_free(nfc_rfid_detector_app);
+    FlipUIDConv_app_free(FlipUIDConv_app);
 
     return 0;
 }
