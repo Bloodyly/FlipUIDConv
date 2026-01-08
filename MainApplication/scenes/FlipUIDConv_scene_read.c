@@ -37,10 +37,10 @@ static void FlipUIDConv_scene_read_update_display(FlipUIDConvApp* app) {
         app->widget, 0, 42, AlignLeft, AlignTop, FontPrimary, uid_text);
 }
 
-static void FlipUIDConv_scene_read_input_callback(InputEvent* event, void* context) {
+static bool FlipUIDConv_scene_read_input_callback(InputEvent* event, void* context) {
     FlipUIDConvApp* app = context;
     if(event->type != InputTypeShort) {
-        return;
+        return false;
     }
 
     uint32_t custom_event = 0;
@@ -66,7 +66,10 @@ static void FlipUIDConv_scene_read_input_callback(InputEvent* event, void* conte
 
     if(custom_event) {
         view_dispatcher_send_custom_event(app->view_dispatcher, custom_event);
+        return true;
     }
+
+    return false;
 }
 
 void FlipUIDConv_scene_read_on_enter(void* context) {
@@ -140,10 +143,6 @@ bool FlipUIDConv_scene_read_on_event(void* context, SceneManagerEvent event) {
         }
         if(app->scanning && !app->led_tag_found) {
             notification_message(app->notifications, &sequence_blink_blue_100);
-        }
-    } else if(event.type == SceneManagerEventTypeTick) {
-        if(app->scanning && !app->led_tag_found) {
-            notification_message(app->notifications, &sequence_blink_blue_10);
         }
     } else if(event.type == SceneManagerEventTypeBack) {
         scene_manager_previous_scene(app->scene_manager);
