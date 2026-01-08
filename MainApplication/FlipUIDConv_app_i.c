@@ -1,6 +1,7 @@
 #include "FlipUIDConv_app_i.h"
 
 #include <furi.h>
+#include <stdio.h>
 
 #define TAG "FlipUIDConv"
 
@@ -12,6 +13,14 @@ typedef struct {
     NfcPoller* poller;
     Iso14443_3aData iso14443_3a_data;
 } AsyncPollerContext;
+
+/* Conversion methods: UID formatting */
+static uint8_t FlipUIDConv_reverse_bits_u8(uint8_t value) {
+    value = (value >> 4) | (value << 4);
+    value = ((value & 0xCC) >> 2) | ((value & 0x33) << 2);
+    value = ((value & 0xAA) >> 1) | ((value & 0x55) << 1);
+    return value;
+}
 
 static uint64_t FlipUIDConv_uid_to_uint64_be(const uint8_t* uid, size_t uid_len) {
     uint64_t value = 0;
@@ -31,23 +40,6 @@ static uint64_t FlipUIDConv_uid_to_uint64_le(const uint8_t* uid, size_t uid_len)
     return value;
 }
 
-static bool FlipUIDConv_uid_to_uint64_be_bytes(
-    const uint8_t* uid,
-    size_t uid_len,
-    size_t bytes,
-    uint64_t* value_out) {
-    if(uid_len < bytes || bytes == 0 || bytes > 8) {
-        return false;
-    }
-    uint64_t value = 0;
-    size_t start = uid_len - bytes;
-    for(size_t i = start; i < uid_len; i++) {
-        value = (value << 8) | uid[i];
-    }
-    *value_out = value;
-    return true;
-}
-
 static void FlipUIDConv_format_uid(
     FuriString* output,
     const uint8_t* uid,
@@ -60,6 +52,7 @@ static void FlipUIDConv_format_uid(
     }
 
     uint64_t value = 0;
+    uint8_t reversed_uid[8] = {0};
     switch(format) {
     case FlipUIDConvUidFormatCompact:
     case FlipUIDConvUidFormatSpaced:
@@ -71,55 +64,74 @@ static void FlipUIDConv_format_uid(
         }
         return;
     case FlipUIDConvUidFormatHex10:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 5, &value)) {
+        if(uid_len >= 5) {
+            for(size_t i = 0; i < 5; i++) {
+                reversed_uid[i] = FlipUIDConv_reverse_bits_u8(uid[i]);
+            }
+            value = FlipUIDConv_uid_to_uint64_be(reversed_uid, 5);
             furi_string_cat_printf(output, "%010llX", (unsigned long long)value);
         } else {
             furi_string_set(output, "N/A");
         }
         return;
     case FlipUIDConvUidFormatHex8:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 4, &value)) {
+        if(uid_len >= 4) {
+            for(size_t i = 0; i < 4; i++) {
+                reversed_uid[i] = FlipUIDConv_reverse_bits_u8(uid[i]);
+            }
+            value = FlipUIDConv_uid_to_uint64_be(reversed_uid, 4);
             furi_string_cat_printf(output, "%08llX", (unsigned long long)value);
         } else {
             furi_string_set(output, "N/A");
         }
         return;
     case FlipUIDConvUidFormatIk3Is:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 3, &value)) {
-            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        if(uid_len >= 5) {
+            value = FlipUIDConv_uid_to_uint64_le(uid, 5);
+            furi_string_cat_printf(output, "%013llu", (unsigned long long)value);
         } else {
             furi_string_set(output, "N/A");
         }
         return;
     case FlipUIDConvUidFormatIk2:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 2, &value)) {
-            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        if(uid_len >= 5) {
+            for(size_t i = 0; i < 5; i++) {
+                reversed_uid[i] = FlipUIDConv_reverse_bits_u8(uid[i]);
+            }
+            value = FlipUIDConv_uid_to_uint64_be(reversed_uid, 5);
+            furi_string_cat_printf(output, "%013llu", (unsigned long long)value);
         } else {
             furi_string_set(output, "N/A");
         }
         return;
     case FlipUIDConvUidFormatZkCodier:
-    case FlipUIDConvUidFormatZxUa:
-    case FlipUIDConvUidFormatHitag:
-    case FlipUIDConvUidFormatWiegand32:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 4, &value)) {
-            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
+        if(uid_len >= 5) {
+            value = FlipUIDConv_uid_to_uint64_le(uid, 5);
+            char hex_value[11] = {0};
+            char trimmed_hex[10] = {0};
+            snprintf(hex_value, sizeof(hex_value), "%010llX", (unsigned long long)value);
+            size_t out_index = 0;
+            for(size_t i = 0; i < 10; i++) {
+                if(i == 5) {
+                    continue;
+                }
+                trimmed_hex[out_index++] = hex_value[i];
+            }
+            trimmed_hex[out_index] = '\0';
+            for(size_t i = 0; i < out_index; i++) {
+                uint8_t digit = 0;
+                if(trimmed_hex[i] >= '0' && trimmed_hex[i] <= '9') {
+                    digit = trimmed_hex[i] - '0';
+                } else if(trimmed_hex[i] >= 'A' && trimmed_hex[i] <= 'F') {
+                    digit = trimmed_hex[i] - 'A' + 10;
+                }
+                furi_string_cat_printf(output, "%02u", digit);
+            }
         } else {
             furi_string_set(output, "N/A");
         }
         return;
-    case FlipUIDConvUidFormatWiegand26:
-        if(FlipUIDConv_uid_to_uint64_be_bytes(uid, uid_len, 3, &value)) {
-            furi_string_cat_printf(output, "%llu", (unsigned long long)value);
-        } else {
-            furi_string_set(output, "N/A");
-        }
-        return;
-    case FlipUIDConvUidFormatMsb:
-        value = FlipUIDConv_uid_to_uint64_be(uid, uid_len);
-        furi_string_cat_printf(output, "%llu", (unsigned long long)value);
-        return;
-    case FlipUIDConvUidFormatLsb:
+    case FlipUIDConvUidFormatIs:
         value = FlipUIDConv_uid_to_uint64_le(uid, uid_len);
         furi_string_cat_printf(output, "%llu", (unsigned long long)value);
         return;
@@ -128,6 +140,34 @@ static void FlipUIDConv_format_uid(
 
 static void FlipUIDConv_set_uid_text(FuriString* output, const char* text) {
     furi_string_set(output, text);
+}
+
+/* Conversion methods: Tag type formatting */
+static void FlipUIDConv_set_tag_type_text(FuriString* output, const char* text) {
+    furi_string_set(output, text);
+}
+
+static void FlipUIDConv_format_nfc_tag_type(const Iso14443_3aData* data, FuriString* output) {
+    uint16_t atqa = ((uint16_t)data->atqa[1] << 8) | data->atqa[0];
+    uint8_t sak = data->sak;
+
+    if((sak == 0x08) && (atqa == 0x0004)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE Classic 1K");
+    } else if((sak == 0x18) && (atqa == 0x0002)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE Classic 4K");
+    } else if((sak == 0x09) && (atqa == 0x0004)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE Mini");
+    } else if((sak == 0x20)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE DESFire");
+    } else if((sak == 0x10)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE Plus");
+    } else if((sak == 0x00) && (atqa == 0x0044)) {
+        FlipUIDConv_set_tag_type_text(output, "MIFARE Ultralight/NTAG");
+    } else if(iso14443_3a_supports_iso14443_4(data)) {
+        FlipUIDConv_set_tag_type_text(output, "ISO14443-4 (Type 4A)");
+    } else {
+        FlipUIDConv_set_tag_type_text(output, "NFC-A");
+    }
 }
 
 static uint16_t FlipUIDConv_hid_keycode_from_char(char c) {
@@ -170,6 +210,10 @@ static void FlipUIDConv_send_hid_if_connected(const char* text) {
         furi_hal_hid_kb_release(keycode);
         furi_delay_ms(5);
     }
+
+    furi_hal_hid_kb_press(HID_KEYBOARD_ENTER);
+    furi_delay_ms(5);
+    furi_hal_hid_kb_release(HID_KEYBOARD_ENTER);
 }
 
 static NfcCommand iso14443_3a_async_callback(NfcGenericEvent event, void* context) {
@@ -205,7 +249,7 @@ static NfcCommand iso14443_3a_async_callback(NfcGenericEvent event, void* contex
     return NfcCommandContinue;
 }
 
-static bool FlipUIDConv_scan_nfc(FlipUIDConvApp* app, FuriString* output) {
+static bool FlipUIDConv_scan_nfc(FlipUIDConvApp* app, FuriString* output, FuriString* tag_type) {
     Nfc* nfc = nfc_alloc();
     if(!nfc) {
         return false;
@@ -244,6 +288,7 @@ static bool FlipUIDConv_scan_nfc(FlipUIDConvApp* app, FuriString* output) {
             const uint8_t* uid = iso14443_3a_get_uid(&async_ctx.iso14443_3a_data, &uid_len);
             if(uid && uid_len > 0) {
                 FlipUIDConv_format_uid(output, uid, uid_len, app->uid_format);
+                FlipUIDConv_format_nfc_tag_type(&async_ctx.iso14443_3a_data, tag_type);
                 found = true;
             }
         }
@@ -268,7 +313,7 @@ static void FlipUIDConv_rfid_read_callback(
     }
 }
 
-static bool FlipUIDConv_scan_rfid(FlipUIDConvApp* app, FuriString* output) {
+static bool FlipUIDConv_scan_rfid(FlipUIDConvApp* app, FuriString* output, FuriString* tag_type) {
     ProtocolDict* dict = protocol_dict_alloc(lfrfid_protocols, LFRFIDProtocolMax);
     if(!dict) {
         return false;
@@ -302,6 +347,10 @@ static bool FlipUIDConv_scan_rfid(FlipUIDConvApp* app, FuriString* output) {
         } else {
             FlipUIDConv_set_uid_text(output, "N/A");
         }
+        FlipUIDConv_set_tag_type_text(
+            tag_type, protocol_dict_get_name(dict, app->rfid_protocol_id));
+    } else {
+        FlipUIDConv_set_tag_type_text(tag_type, "Unknown");
     }
 
     lfrfid_worker_free(worker);
@@ -314,28 +363,31 @@ static int32_t FlipUIDConv_scan_thread(void* context) {
 
     app->uid_ready = false;
     furi_string_reset(app->uid_string);
+    furi_string_reset(app->tag_type_string);
     FuriString* scanned_uid = furi_string_alloc();
+    FuriString* scanned_tag_type = furi_string_alloc();
 
     while(app->scanning) {
         bool detected = false;
         furi_string_reset(scanned_uid);
+        furi_string_reset(scanned_tag_type);
+        app->uid_ready = false;
+        app->led_tag_found = false;
         if(app->read_mode == FlipUIDConvReadModeNfc) {
-            detected = FlipUIDConv_scan_nfc(app, scanned_uid);
+            detected = FlipUIDConv_scan_nfc(app, scanned_uid, scanned_tag_type);
         } else {
-            detected = FlipUIDConv_scan_rfid(app, scanned_uid);
+            detected = FlipUIDConv_scan_rfid(app, scanned_uid, scanned_tag_type);
         }
 
         if(detected && app->scanning) {
             if(furi_string_cmp(scanned_uid, app->uid_string) != 0) {
                 furi_string_set(app->uid_string, furi_string_get_cstr(scanned_uid));
                 app->uid_ready = true;
-                if(app->output_mode == FlipUIDConvOutputUsbHid) {
-                    FlipUIDConv_send_hid_if_connected(
-                        furi_string_get_cstr(app->uid_string));
-                }
-                view_dispatcher_send_custom_event(
-                    app->view_dispatcher, FlipUIDConvCustomEventUidDetected);
+                FlipUIDConv_send_hid_if_connected(furi_string_get_cstr(app->uid_string));
             }
+            furi_string_set(app->tag_type_string, furi_string_get_cstr(scanned_tag_type));
+            view_dispatcher_send_custom_event(
+                app->view_dispatcher, FlipUIDConvCustomEventUidDetected);
             furi_delay_ms(2000);
         } else {
             furi_delay_ms(50);
@@ -344,6 +396,7 @@ static int32_t FlipUIDConv_scan_thread(void* context) {
 
     app->scanning = false;
     furi_string_free(scanned_uid);
+    furi_string_free(scanned_tag_type);
     return 0;
 }
 

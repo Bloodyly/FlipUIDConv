@@ -25,15 +25,5 @@ typedef enum {
     FlipUIDConvUidFormatIk3Is,
     FlipUIDConvUidFormatIk2,
     FlipUIDConvUidFormatZkCodier,
-    FlipUIDConvUidFormatZxUa,
-    FlipUIDConvUidFormatHitag,
-    FlipUIDConvUidFormatWiegand32,
-    FlipUIDConvUidFormatWiegand26,
-    FlipUIDConvUidFormatMsb,
-    FlipUIDConvUidFormatLsb,
+    FlipUIDConvUidFormatIs,
 } FlipUIDConvUidFormat;
-
-typedef enum {
-    FlipUIDConvOutputScreen,
-    FlipUIDConvOutputUsbHid,
-} FlipUIDConvOutput;
