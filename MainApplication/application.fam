@@ -4,7 +4,7 @@ App(
     apptype=FlipperAppType.EXTERNAL,
     targets=["f7"],
     entry_point="FlipUIDConv_app",
-    requires=["gui"],
+    requires=["gui", "usb_hid", "notification", "nfc", "lfrfid"],
     stack_size=4 * 1024,
     fap_description="Read UID from NFC and RFID Transponder and convert it to different formats. now with USB support",
     fap_version="1.4",

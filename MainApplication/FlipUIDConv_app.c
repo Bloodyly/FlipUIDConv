@@ -59,6 +59,7 @@ FlipUIDConvApp* FlipUIDConv_app_alloc() {
     app->uid_string = furi_string_alloc();
     app->read_mode = FlipUIDConvReadModeNfc;
     app->uid_format = FlipUIDConvUidFormatSpaced;
+    app->output_mode = FlipUIDConvOutputScreen;
     app->scanning = false;
     app->uid_ready = false;
     app->scan_thread = NULL;
