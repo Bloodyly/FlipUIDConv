@@ -44,8 +44,10 @@ struct FlipUIDConvApp {
     bool usb_status_connected;
     FuriHalUsbInterface* usb_prev_config;
     bool led_tag_found;
+    bool sound_enabled;
 };
 
 void FlipUIDConv_app_scan_start(FlipUIDConvApp* app);
 void FlipUIDConv_app_scan_stop(FlipUIDConvApp* app);
 const char* FlipUIDConv_app_get_uid_string(FlipUIDConvApp* app);
+void FlipUIDConv_app_send_hid(FlipUIDConvApp* app);

@@ -431,3 +431,11 @@ const char* FlipUIDConv_app_get_uid_string(FlipUIDConvApp* app) {
     furi_assert(app);
     return furi_string_get_cstr(app->uid_string);
 }
+
+void FlipUIDConv_app_send_hid(FlipUIDConvApp* app) {
+    furi_assert(app);
+    if(furi_string_size(app->uid_string) == 0) {
+        return;
+    }
+    FlipUIDConv_send_hid_if_connected(furi_string_get_cstr(app->uid_string));
+}
