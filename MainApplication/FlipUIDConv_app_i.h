@@ -37,9 +37,13 @@ struct FlipUIDConvApp {
     bool uid_ready;
     FlipUIDConvReadMode read_mode;
     FlipUIDConvUidFormat uid_format;
-    FlipUIDConvOutput output_mode;
     FuriString* uid_string;
+    FuriString* tag_type_string;
     ProtocolId rfid_protocol_id;
+    VariableItem* usb_status_item;
+    bool usb_status_connected;
+    FuriHalUsbInterface* usb_prev_config;
+    bool led_tag_found;
 };
 
 void FlipUIDConv_app_scan_start(FlipUIDConvApp* app);

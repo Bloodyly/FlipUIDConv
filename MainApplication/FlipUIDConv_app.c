@@ -44,6 +44,10 @@ FlipUIDConvApp* FlipUIDConv_app_alloc() {
     // Open Notification record
     app->notifications = furi_record_open(RECORD_NOTIFICATION);
 
+    app->usb_prev_config = furi_hal_usb_get_config();
+    furi_hal_usb_unlock();
+    furi_check(furi_hal_usb_set_config(&usb_hid, NULL) == true);
+
     // SubMenu
     app->variable_item_list = variable_item_list_alloc();
     view_dispatcher_add_view(
@@ -57,13 +61,16 @@ FlipUIDConvApp* FlipUIDConv_app_alloc() {
         app->view_dispatcher, FlipUIDConvViewWidget, widget_get_view(app->widget));
 
     app->uid_string = furi_string_alloc();
+    app->tag_type_string = furi_string_alloc();
     app->read_mode = FlipUIDConvReadModeNfc;
     app->uid_format = FlipUIDConvUidFormatSpaced;
-    app->output_mode = FlipUIDConvOutputScreen;
     app->scanning = false;
     app->uid_ready = false;
     app->scan_thread = NULL;
     app->rfid_protocol_id = PROTOCOL_NO;
+    app->usb_status_item = NULL;
+    app->usb_status_connected = false;
+    app->led_tag_found = false;
 
     scene_manager_next_scene(app->scene_manager, FlipUIDConvSceneSettings);
 
@@ -83,10 +90,16 @@ void FlipUIDConv_app_free(FlipUIDConvApp* app) {
 
     FlipUIDConv_app_scan_stop(app);
     furi_string_free(app->uid_string);
+    furi_string_free(app->tag_type_string);
 
     // View dispatcher
     view_dispatcher_free(app->view_dispatcher);
     scene_manager_free(app->scene_manager);
+
+    if(app->usb_prev_config) {
+        furi_hal_usb_set_config(app->usb_prev_config, NULL);
+        app->usb_prev_config = NULL;
+    }
 
     // Notifications
     furi_record_close(RECORD_NOTIFICATION);
