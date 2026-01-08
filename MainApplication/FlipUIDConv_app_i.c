@@ -405,6 +405,7 @@ static int32_t FlipUIDConv_scan_thread(void* context) {
         }
 
         if(detected && app->scanning) {
+            app->uid_ready = false;
             bool is_new = (raw_uid_len != app->uid_bytes_len) ||
                           (raw_uid_len &&
                            memcmp(app->uid_bytes, raw_uid, raw_uid_len) != 0);
