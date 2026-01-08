@@ -1,2 +1,2 @@
-ADD_SCENE(nfc_rfid_detector, settings, Settings)
-ADD_SCENE(nfc_rfid_detector, read, Read)
+ADD_SCENE(FlipUIDConv, settings, Settings)
+ADD_SCENE(FlipUIDConv, read, Read)

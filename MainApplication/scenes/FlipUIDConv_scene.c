@@ -1,4 +1,4 @@
-#include "../nfc_rfid_detector_app_i.h"
+#include "../FlipUIDConv_app_i.h"
 
 // Generate scene on_enter handlers array
 #define ADD_SCENE(prefix, name, id) prefix##_scene_##name##_on_enter,
