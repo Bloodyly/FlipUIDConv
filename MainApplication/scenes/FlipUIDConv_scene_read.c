@@ -13,6 +13,25 @@ static const char* FlipUIDConv_uid_format_labels[] = {
     "IS",
 };
 
+static const NotificationSequence FlipUIDConv_sequence_set_magenta_255 = {
+    &message_red_255,
+    &message_blue_255,
+    &message_do_not_reset,
+    NULL,
+};
+
+static void FlipUIDConv_scene_read_set_scan_led(FlipUIDConvApp* app) {
+    if(!app->scanning) {
+        return;
+    }
+
+    if(app->read_mode == FlipUIDConvReadModeNfc) {
+        notification_message(app->notifications, &sequence_set_blue_255);
+    } else {
+        notification_message(app->notifications, &FlipUIDConv_sequence_set_magenta_255);
+    }
+}
+
 static void FlipUIDConv_scene_read_update_display(FlipUIDConvApp* app) {
     widget_reset(app->widget);
 
@@ -78,6 +97,7 @@ void FlipUIDConv_scene_read_on_enter(void* context) {
     FlipUIDConvApp* app = context;
 
     app->usb_status_connected = furi_hal_hid_is_connected();
+    app->scan_led_active = false;
     FlipUIDConv_scene_read_update_display(app);
     view_dispatcher_switch_to_view(app->view_dispatcher, FlipUIDConvViewWidget);
     view_set_context(widget_get_view(app->widget), app);
@@ -110,6 +130,7 @@ bool FlipUIDConv_scene_read_on_event(void* context, SceneManagerEvent event) {
             furi_string_reset(app->uid_string);
             app->uid_bytes_len = 0;
             FlipUIDConv_app_scan_start(app);
+            app->scan_led_active = false;
             FlipUIDConv_scene_read_update_display(app);
             return true;
         case FlipUIDConvCustomEventInputDown:
@@ -143,7 +164,12 @@ bool FlipUIDConv_scene_read_on_event(void* context, SceneManagerEvent event) {
             FlipUIDConv_scene_read_update_display(app);
         }
         if(app->scanning && !app->led_tag_found) {
-            notification_message(app->notifications, &sequence_blink_blue_100);
+            if(!app->scan_led_active) {
+                app->scan_led_active = true;
+                FlipUIDConv_scene_read_set_scan_led(app);
+            }
+        } else {
+            app->scan_led_active = false;
         }
     } else if(event.type == SceneManagerEventTypeBack) {
         scene_manager_previous_scene(app->scene_manager);
@@ -157,6 +183,7 @@ void FlipUIDConv_scene_read_on_exit(void* context) {
     FlipUIDConvApp* app = context;
     FlipUIDConv_app_scan_stop(app);
     app->led_tag_found = false;
+    app->scan_led_active = false;
     app->uid_ready = false;
     app->uid_bytes_len = 0;
     furi_string_reset(app->uid_string);

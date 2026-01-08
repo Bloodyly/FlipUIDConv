@@ -48,6 +48,7 @@ struct FlipUIDConvApp {
     bool sound_enabled;
     uint8_t uid_bytes[FLIPUIDCONV_UID_BYTES_MAX];
     size_t uid_bytes_len;
+    bool scan_led_active;
 };
 
 void FlipUIDConv_app_scan_start(FlipUIDConvApp* app);

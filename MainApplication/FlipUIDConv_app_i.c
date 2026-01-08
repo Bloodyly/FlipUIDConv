@@ -394,6 +394,7 @@ static int32_t FlipUIDConv_scan_thread(void* context) {
         furi_string_reset(scanned_tag_type);
         app->uid_ready = false;
         app->led_tag_found = false;
+        app->scan_led_active = false;
         raw_uid_len = 0;
         if(app->read_mode == FlipUIDConvReadModeNfc) {
             detected = FlipUIDConv_scan_nfc(
