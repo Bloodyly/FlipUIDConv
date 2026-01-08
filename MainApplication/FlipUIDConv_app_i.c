@@ -13,6 +13,7 @@ typedef struct {
     Iso14443_3aData iso14443_3a_data;
 } AsyncPollerContext;
 
+/* Conversion methods: UID formatting */
 static uint64_t FlipUIDConv_uid_to_uint64_be(const uint8_t* uid, size_t uid_len) {
     uint64_t value = 0;
     size_t start = uid_len > 8 ? uid_len - 8 : 0;
@@ -130,6 +131,7 @@ static void FlipUIDConv_set_uid_text(FuriString* output, const char* text) {
     furi_string_set(output, text);
 }
 
+/* Conversion methods: Tag type formatting */
 static void FlipUIDConv_set_tag_type_text(FuriString* output, const char* text) {
     furi_string_set(output, text);
 }
