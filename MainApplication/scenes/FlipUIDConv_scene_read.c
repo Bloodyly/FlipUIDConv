@@ -1,5 +1,7 @@
 #include "../FlipUIDConv_app_i.h"
 
+#include <stdio.h>
+
 static const char* FlipUIDConv_uid_format_labels[] = {
     "Compact",
     "Spaced",
@@ -28,10 +30,10 @@ static void FlipUIDConv_scene_read_update_display(FlipUIDConvApp* app) {
     widget_add_string_element(
         app->widget, 127, 10, AlignRight, AlignTop, FontSecondary, usb_text);
 
-    FuriString* format_line = furi_string_alloc_printf("Format: %s", format);
+    char format_line[32];
+    snprintf(format_line, sizeof(format_line), "Format: %s", format);
     widget_add_string_element(
-        app->widget, 0, 26, AlignLeft, AlignTop, FontPrimary, furi_string_get_cstr(format_line));
-    furi_string_free(format_line);
+        app->widget, 0, 26, AlignLeft, AlignTop, FontPrimary, format_line);
 
     widget_add_string_element(
         app->widget, 0, 42, AlignLeft, AlignTop, FontPrimary, uid_text);
@@ -106,6 +108,7 @@ bool FlipUIDConv_scene_read_on_event(void* context, SceneManagerEvent event) {
             app->led_tag_found = false;
             app->uid_ready = false;
             furi_string_reset(app->uid_string);
+            app->uid_bytes_len = 0;
             FlipUIDConv_app_scan_start(app);
             FlipUIDConv_scene_read_update_display(app);
             return true;
@@ -119,14 +122,12 @@ bool FlipUIDConv_scene_read_on_event(void* context, SceneManagerEvent event) {
             } else {
                 app->uid_format--;
             }
-            app->uid_ready = false;
-            furi_string_reset(app->uid_string);
+            FlipUIDConv_app_refresh_uid(app);
             FlipUIDConv_scene_read_update_display(app);
             return true;
         case FlipUIDConvCustomEventInputRight:
             app->uid_format = (app->uid_format + 1) % COUNT_OF(FlipUIDConv_uid_format_labels);
-            app->uid_ready = false;
-            furi_string_reset(app->uid_string);
+            FlipUIDConv_app_refresh_uid(app);
             FlipUIDConv_scene_read_update_display(app);
             return true;
         case FlipUIDConvCustomEventInputOk:
@@ -156,6 +157,9 @@ void FlipUIDConv_scene_read_on_exit(void* context) {
     FlipUIDConvApp* app = context;
     FlipUIDConv_app_scan_stop(app);
     app->led_tag_found = false;
+    app->uid_ready = false;
+    app->uid_bytes_len = 0;
+    furi_string_reset(app->uid_string);
     notification_message(app->notifications, &sequence_reset_rgb);
     widget_reset(app->widget);
 }

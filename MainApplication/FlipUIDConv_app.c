@@ -72,6 +72,7 @@ FlipUIDConvApp* FlipUIDConv_app_alloc() {
     app->usb_status_connected = false;
     app->led_tag_found = false;
     app->sound_enabled = true;
+    app->uid_bytes_len = 0;
 
     scene_manager_next_scene(app->scene_manager, FlipUIDConvSceneSettings);
 

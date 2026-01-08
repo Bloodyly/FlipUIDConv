@@ -2,6 +2,7 @@
 
 #include <furi.h>
 #include <stdio.h>
+#include <string.h>
 
 #define TAG "FlipUIDConv"
 
@@ -249,7 +250,13 @@ static NfcCommand iso14443_3a_async_callback(NfcGenericEvent event, void* contex
     return NfcCommandContinue;
 }
 
-static bool FlipUIDConv_scan_nfc(FlipUIDConvApp* app, FuriString* output, FuriString* tag_type) {
+static bool FlipUIDConv_scan_nfc(
+    FlipUIDConvApp* app,
+    FuriString* output,
+    FuriString* tag_type,
+    uint8_t* raw_uid,
+    size_t* raw_uid_len,
+    size_t raw_uid_max) {
     Nfc* nfc = nfc_alloc();
     if(!nfc) {
         return false;
@@ -289,6 +296,9 @@ static bool FlipUIDConv_scan_nfc(FlipUIDConvApp* app, FuriString* output, FuriSt
             if(uid && uid_len > 0) {
                 FlipUIDConv_format_uid(output, uid, uid_len, app->uid_format);
                 FlipUIDConv_format_nfc_tag_type(&async_ctx.iso14443_3a_data, tag_type);
+                size_t copy_len = uid_len < raw_uid_max ? uid_len : raw_uid_max;
+                memcpy(raw_uid, uid, copy_len);
+                *raw_uid_len = copy_len;
                 found = true;
             }
         }
@@ -313,7 +323,13 @@ static void FlipUIDConv_rfid_read_callback(
     }
 }
 
-static bool FlipUIDConv_scan_rfid(FlipUIDConvApp* app, FuriString* output, FuriString* tag_type) {
+static bool FlipUIDConv_scan_rfid(
+    FlipUIDConvApp* app,
+    FuriString* output,
+    FuriString* tag_type,
+    uint8_t* raw_uid,
+    size_t* raw_uid_len,
+    size_t raw_uid_max) {
     ProtocolDict* dict = protocol_dict_alloc(lfrfid_protocols, LFRFIDProtocolMax);
     if(!dict) {
         return false;
@@ -343,6 +359,9 @@ static bool FlipUIDConv_scan_rfid(FlipUIDConvApp* app, FuriString* output, FuriS
             uint8_t* data = malloc(data_size);
             protocol_dict_get_data(dict, app->rfid_protocol_id, data, data_size);
             FlipUIDConv_format_uid(output, data, data_size, app->uid_format);
+            size_t copy_len = data_size < raw_uid_max ? data_size : raw_uid_max;
+            memcpy(raw_uid, data, copy_len);
+            *raw_uid_len = copy_len;
             free(data);
         } else {
             FlipUIDConv_set_uid_text(output, "N/A");
@@ -366,6 +385,8 @@ static int32_t FlipUIDConv_scan_thread(void* context) {
     furi_string_reset(app->tag_type_string);
     FuriString* scanned_uid = furi_string_alloc();
     FuriString* scanned_tag_type = furi_string_alloc();
+    uint8_t raw_uid[FLIPUIDCONV_UID_BYTES_MAX] = {0};
+    size_t raw_uid_len = 0;
 
     while(app->scanning) {
         bool detected = false;
@@ -373,16 +394,23 @@ static int32_t FlipUIDConv_scan_thread(void* context) {
         furi_string_reset(scanned_tag_type);
         app->uid_ready = false;
         app->led_tag_found = false;
+        raw_uid_len = 0;
         if(app->read_mode == FlipUIDConvReadModeNfc) {
-            detected = FlipUIDConv_scan_nfc(app, scanned_uid, scanned_tag_type);
+            detected = FlipUIDConv_scan_nfc(
+                app, scanned_uid, scanned_tag_type, raw_uid, &raw_uid_len, sizeof(raw_uid));
         } else {
-            detected = FlipUIDConv_scan_rfid(app, scanned_uid, scanned_tag_type);
+            detected = FlipUIDConv_scan_rfid(
+                app, scanned_uid, scanned_tag_type, raw_uid, &raw_uid_len, sizeof(raw_uid));
         }
 
         if(detected && app->scanning) {
-            app->led_tag_found = true;
-            if(furi_string_cmp(scanned_uid, app->uid_string) != 0) {
-                furi_string_set(app->uid_string, furi_string_get_cstr(scanned_uid));
+            bool is_new = (raw_uid_len != app->uid_bytes_len) ||
+                          (raw_uid_len &&
+                           memcmp(app->uid_bytes, raw_uid, raw_uid_len) != 0);
+            if(is_new) {
+                memcpy(app->uid_bytes, raw_uid, raw_uid_len);
+                app->uid_bytes_len = raw_uid_len;
+                FlipUIDConv_app_refresh_uid(app);
                 app->uid_ready = true;
                 FlipUIDConv_send_hid_if_connected(furi_string_get_cstr(app->uid_string));
             }
@@ -438,4 +466,14 @@ void FlipUIDConv_app_send_hid(FlipUIDConvApp* app) {
         return;
     }
     FlipUIDConv_send_hid_if_connected(furi_string_get_cstr(app->uid_string));
+}
+
+void FlipUIDConv_app_refresh_uid(FlipUIDConvApp* app) {
+    furi_assert(app);
+    if(app->uid_bytes_len == 0) {
+        furi_string_reset(app->uid_string);
+        return;
+    }
+    FlipUIDConv_format_uid(
+        app->uid_string, app->uid_bytes, app->uid_bytes_len, app->uid_format);
 }

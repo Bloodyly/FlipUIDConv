@@ -22,6 +22,7 @@
 #include <furi_hal_usb_hid.h>
 
 #define ISO14443_3A_ASYNC_FLAG_COMPLETE (1UL << 0)
+#define FLIPUIDCONV_UID_BYTES_MAX       16
 
 typedef struct FlipUIDConvApp FlipUIDConvApp;
 
@@ -45,9 +46,12 @@ struct FlipUIDConvApp {
     FuriHalUsbInterface* usb_prev_config;
     bool led_tag_found;
     bool sound_enabled;
+    uint8_t uid_bytes[FLIPUIDCONV_UID_BYTES_MAX];
+    size_t uid_bytes_len;
 };
 
 void FlipUIDConv_app_scan_start(FlipUIDConvApp* app);
 void FlipUIDConv_app_scan_stop(FlipUIDConvApp* app);
 const char* FlipUIDConv_app_get_uid_string(FlipUIDConvApp* app);
 void FlipUIDConv_app_send_hid(FlipUIDConvApp* app);
+void FlipUIDConv_app_refresh_uid(FlipUIDConvApp* app);
