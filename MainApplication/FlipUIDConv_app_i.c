@@ -379,6 +379,7 @@ static int32_t FlipUIDConv_scan_thread(void* context) {
         }
 
         if(detected && app->scanning) {
+            app->led_tag_found = true;
             if(furi_string_cmp(scanned_uid, app->uid_string) != 0) {
                 furi_string_set(app->uid_string, furi_string_get_cstr(scanned_uid));
                 app->uid_ready = true;
