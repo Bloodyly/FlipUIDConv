@@ -3,7 +3,7 @@
 typedef enum {
     FlipUIDConvSettingsItemReadMode,
     FlipUIDConvSettingsItemUidFormat,
-    FlipUIDConvSettingsItemOutputMode,
+    FlipUIDConvSettingsItemUsbStatus,
 } FlipUIDConvSettingsItem;
 
 static const char* FlipUIDConv_read_mode_labels[] = {
@@ -15,21 +15,16 @@ static const char* FlipUIDConv_uid_format_labels[] = {
     "Compact",
     "Spaced",
     "Hex10",
-    "Hex8",
+    "Hex8/COMLock",
     "IK3/IS",
     "IK2",
     "ZK/Codier",
-    "ZX/UA",
-    "Hitag",
-    "Wiegand32",
-    "Wiegand26",
-    "MSB",
-    "LSB",
+    "IS",
 };
 
-static const char* FlipUIDConv_output_mode_labels[] = {
-    "Screen",
-    "USB HID",
+static const char* FlipUIDConv_usb_status_labels[] = {
+    "Disconnected",
+    "Connected",
 };
 
 static void FlipUIDConv_scene_settings_read_mode_changed(VariableItem* item) {
@@ -46,11 +41,18 @@ static void FlipUIDConv_scene_settings_uid_format_changed(VariableItem* item) {
     variable_item_set_current_value_text(item, FlipUIDConv_uid_format_labels[index]);
 }
 
-static void FlipUIDConv_scene_settings_output_mode_changed(VariableItem* item) {
+static void FlipUIDConv_scene_settings_usb_status_update(FlipUIDConvApp* app) {
+    bool connected = furi_hal_hid_is_connected();
+    if(app->usb_status_item && app->usb_status_connected != connected) {
+        app->usb_status_connected = connected;
+        variable_item_set_current_value_text(
+            app->usb_status_item, FlipUIDConv_usb_status_labels[connected ? 1 : 0]);
+    }
+}
+
+static void FlipUIDConv_scene_settings_usb_status_changed(VariableItem* item) {
     FlipUIDConvApp* app = variable_item_get_context(item);
-    uint8_t index = variable_item_get_current_value_index(item);
-    app->output_mode = (FlipUIDConvOutput)index;
-    variable_item_set_current_value_text(item, FlipUIDConv_output_mode_labels[index]);
+    FlipUIDConv_scene_settings_usb_status_update(app);
 }
 
 static void FlipUIDConv_scene_settings_menu_callback(void* context, uint32_t index) {
@@ -83,12 +85,15 @@ void FlipUIDConv_scene_settings_on_enter(void* context) {
 
     item = variable_item_list_add(
         item_list,
-        "Output",
-        COUNT_OF(FlipUIDConv_output_mode_labels),
-        FlipUIDConv_scene_settings_output_mode_changed,
+        "USB",
+        1,
+        FlipUIDConv_scene_settings_usb_status_changed,
         app);
-    variable_item_set_current_value_index(item, app->output_mode);
-    variable_item_set_current_value_text(item, FlipUIDConv_output_mode_labels[app->output_mode]);
+    app->usb_status_item = item;
+    app->usb_status_connected = furi_hal_hid_is_connected();
+    variable_item_set_current_value_text(
+        item,
+        FlipUIDConv_usb_status_labels[app->usb_status_connected ? 1 : 0]);
     variable_item_list_set_enter_callback(
         item_list, FlipUIDConv_scene_settings_menu_callback, app);
 
@@ -96,12 +101,17 @@ void FlipUIDConv_scene_settings_on_enter(void* context) {
 }
 
 bool FlipUIDConv_scene_settings_on_event(void* context, SceneManagerEvent event) {
-    UNUSED(context);
-    UNUSED(event);
+    FlipUIDConvApp* app = context;
+
+    if(event.type == SceneManagerEventTypeTick) {
+        FlipUIDConv_scene_settings_usb_status_update(app);
+    }
+
     return false;
 }
 
 void FlipUIDConv_scene_settings_on_exit(void* context) {
     FlipUIDConvApp* app = context;
+    app->usb_status_item = NULL;
     variable_item_list_reset(app->variable_item_list);
 }
