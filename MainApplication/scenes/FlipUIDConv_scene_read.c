@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include "../images/FlipUIDConv_icons.h"
+
 static const char* FlipUIDConv_uid_format_labels[] = {
     "Compact",
     "Spaced",
@@ -35,27 +37,35 @@ static void FlipUIDConv_scene_read_set_scan_led(FlipUIDConvApp* app) {
 static void FlipUIDConv_scene_read_update_display(FlipUIDConvApp* app) {
     widget_reset(app->widget);
 
-    const char* mode = (app->read_mode == FlipUIDConvReadModeNfc) ? "NFC" : "RFID";
+    const char* scan_text =
+        (app->read_mode == FlipUIDConvReadModeNfc) ? "Scanning for NFC" : "Scanning for RFID";
     const char* format = FlipUIDConv_uid_format_labels[app->uid_format];
     const char* uid_text = furi_string_size(app->uid_string) ? FlipUIDConv_app_get_uid_string(app) :
                                                                "...";
-    const char* usb_text = app->usb_status_connected ? "USB" : "USB-";
-    const char* sound_text = app->sound_enabled ? "SND" : "MUT";
+    const char* tag_text =
+        furi_string_size(app->tag_type_string) ? furi_string_get_cstr(app->tag_type_string) : "-";
+    const Icon* usb_icon =
+        app->usb_status_connected ? &I_FlipUIDConv_UsbOn_10x10 : &I_FlipUIDConv_UsbOff_10x10;
+    const Icon* sound_icon =
+        app->sound_enabled ? &I_FlipUIDConv_Sound_10x10 : &I_FlipUIDConv_Mute_10x10;
 
     widget_add_string_element(
-        app->widget, 0, 10, AlignLeft, AlignTop, FontPrimary, mode);
-    widget_add_string_element(
-        app->widget, 100, 10, AlignRight, AlignTop, FontSecondary, sound_text);
-    widget_add_string_element(
-        app->widget, 127, 10, AlignRight, AlignTop, FontSecondary, usb_text);
+        app->widget, 0, 0, AlignLeft, AlignTop, FontPrimary, scan_text);
+    widget_add_icon_element(app->widget, 108, 0, sound_icon);
+    widget_add_icon_element(app->widget, 118, 0, usb_icon);
 
     char format_line[32];
     snprintf(format_line, sizeof(format_line), "Format: %s", format);
     widget_add_string_element(
-        app->widget, 0, 26, AlignLeft, AlignTop, FontPrimary, format_line);
+        app->widget, 0, 12, AlignLeft, AlignTop, FontPrimary, format_line);
+
+    char tag_line[32];
+    snprintf(tag_line, sizeof(tag_line), "Type: %s", tag_text);
+    widget_add_string_element(
+        app->widget, 0, 24, AlignLeft, AlignTop, FontPrimary, tag_line);
 
     widget_add_string_element(
-        app->widget, 0, 42, AlignLeft, AlignTop, FontPrimary, uid_text);
+        app->widget, 0, 36, AlignLeft, AlignTop, FontPrimary, uid_text);
 }
 
 static bool FlipUIDConv_scene_read_input_callback(InputEvent* event, void* context) {
@@ -129,6 +139,7 @@ bool FlipUIDConv_scene_read_on_event(void* context, SceneManagerEvent event) {
             app->uid_ready = false;
             furi_string_reset(app->uid_string);
             app->uid_bytes_len = 0;
+            furi_string_reset(app->tag_type_string);
             FlipUIDConv_app_scan_start(app);
             app->scan_led_active = false;
             FlipUIDConv_scene_read_update_display(app);
@@ -187,6 +198,7 @@ void FlipUIDConv_scene_read_on_exit(void* context) {
     app->uid_ready = false;
     app->uid_bytes_len = 0;
     furi_string_reset(app->uid_string);
+    furi_string_reset(app->tag_type_string);
     notification_message(app->notifications, &sequence_reset_rgb);
     widget_reset(app->widget);
 }
